@@ -5,6 +5,7 @@ import { requestLogger } from "./middlewares/request-logger.js"
 import { notFoundHandler } from "./middlewares/not-found.js"
 import { globalErrorHandler } from "./middlewares/global-error-handler.js"
 import { authenticate } from "./middlewares/auth.js"
+import { generalLimiter } from "./middlewares/rate-limiter.js"
 import healthRouter from "./routes/health.route.js"
 import eventRouter from "./routes/event.routes.js"
 
@@ -24,6 +25,7 @@ app.use(express.json({ limit: "1mb" }))
 app.use(express.urlencoded({ extended: true, limit: "1mb" }))
 
 app.use("/api/health", healthRouter)
+app.use("/api", generalLimiter)
 app.use("/api/events", eventRouter)
 
 app.get("/api/test-auth", authenticate, (req: Request, res: Response) => {

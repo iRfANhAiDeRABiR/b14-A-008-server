@@ -11,6 +11,22 @@ export const EVENT_CATEGORIES = [
   "Other",
 ] as const
 
+export function isValidCalendarDateString(str: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return false
+  }
+  const [y, m, d] = str.split("-").map(Number)
+  if (m < 1 || m > 12 || d < 1 || d > 31) {
+    return false
+  }
+  const dateObj = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0))
+  return (
+    dateObj.getUTCFullYear() === y &&
+    dateObj.getUTCMonth() === m - 1 &&
+    dateObj.getUTCDate() === d
+  )
+}
+
 export function isValidObjectId(id: unknown): id is string {
   if (typeof id !== "string") {
     return false
@@ -106,49 +122,78 @@ export const createEventSchema = z
 
 export type CreateEventSchemaType = z.infer<typeof createEventSchema>
 
-export const getUpcomingEventsQuerySchema = z.object({
-  page: z
-    .string()
-    .optional()
-    .refine((val) => val === undefined || (/^\d+$/.test(val) && Number(val) > 0), {
-      message: "Page must be a positive integer",
-    })
-    .transform((val) => (val ? Number(val) : 1)),
-  limit: z
-    .string()
-    .optional()
-    .refine(
-      (val) =>
-        val === undefined ||
-        (/^\d+$/.test(val) && Number(val) >= 1 && Number(val) <= 50),
-      {
-        message: "Limit must be a positive integer between 1 and 50",
+export const getUpcomingEventsQuerySchema = z
+  .object({
+    page: z
+      .string()
+      .optional()
+      .refine((val) => val === undefined || (/^\d+$/.test(val) && Number(val) > 0), {
+        message: "Page must be a positive integer",
+      })
+      .transform((val) => (val ? Number(val) : 1)),
+    limit: z
+      .string()
+      .optional()
+      .refine(
+        (val) =>
+          val === undefined ||
+          (/^\d+$/.test(val) && Number(val) >= 1 && Number(val) <= 50),
+        {
+          message: "Limit must be a positive integer between 1 and 50",
+        }
+      )
+      .transform((val) => (val ? Number(val) : 6)),
+    search: z.string().trim().max(100, "Search query cannot exceed 100 characters").optional(),
+    eventType: z
+      .string()
+      .trim()
+      .optional()
+      .refine(
+        (val) =>
+          !val ||
+          val === "all" ||
+          EVENT_CATEGORIES.includes(val as (typeof EVENT_CATEGORIES)[number]),
+        "Invalid event category. Allowed categories: Cleanup, Plantation, Donation, Education, Healthcare, Other"
+      ),
+    location: z.string().trim().max(100, "Location query cannot exceed 100 characters").optional(),
+    startDate: z
+      .string()
+      .trim()
+      .optional()
+      .refine(
+        (val) => !val || isValidCalendarDateString(val),
+        "startDate must be a valid calendar date in YYYY-MM-DD format"
+      ),
+    endDate: z
+      .string()
+      .trim()
+      .optional()
+      .refine(
+        (val) => !val || isValidCalendarDateString(val),
+        "endDate must be a valid calendar date in YYYY-MM-DD format"
+      ),
+    sort: z
+      .string()
+      .trim()
+      .optional()
+      .refine(
+        (val) => !val || val === "nearest" || val === "latest",
+        "Invalid sort option. Allowed values: nearest, latest"
+      )
+      .transform((val) => (val === "latest" ? "latest" : "nearest")),
+  })
+  .refine(
+    (data) => {
+      if (data.startDate && data.endDate) {
+        return data.startDate <= data.endDate
       }
-    )
-    .transform((val) => (val ? Number(val) : 6)),
-  search: z.string().trim().optional(),
-  eventType: z
-    .string()
-    .trim()
-    .optional()
-    .refine(
-      (val) =>
-        !val ||
-        val === "all" ||
-        EVENT_CATEGORIES.includes(val as (typeof EVENT_CATEGORIES)[number]),
-      "Invalid event type"
-    ),
-  location: z.string().trim().optional(),
-  sort: z
-    .string()
-    .trim()
-    .optional()
-    .refine(
-      (val) => !val || val === "nearest" || val === "latest",
-      "Invalid sort option. Allowed values: nearest, latest"
-    )
-    .transform((val) => (val === "latest" ? "latest" : "nearest")),
-})
+      return true
+    },
+    {
+      message: "startDate cannot be later than endDate",
+      path: ["startDate"],
+    }
+  )
 
 export type GetUpcomingEventsQueryParams = z.infer<typeof getUpcomingEventsQuerySchema>
 
@@ -203,5 +248,9 @@ export const updateEventSchema = z
       .optional(),
   })
   .strict()
+  .refine(
+    (data) => Object.keys(data).length > 0,
+    "At least one field must be provided for update"
+  )
 
 export type UpdateEventSchemaType = z.infer<typeof updateEventSchema>

@@ -116,10 +116,7 @@ export async function getUpcomingEvents(
 
     const { events, pagination } = await getUpcomingEventsFromDb(validationResult.data)
 
-    const message =
-      events.length === 0
-        ? "No upcoming events found"
-        : "Upcoming events retrieved successfully"
+    const message = "Upcoming events retrieved successfully"
 
     res.status(200).json({
       success: true,

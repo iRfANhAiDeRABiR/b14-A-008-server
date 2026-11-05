@@ -40,6 +40,34 @@ export function globalErrorHandler(
     return
   }
 
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "type" in err &&
+    (err as { type: unknown }).type === "entity.too.large"
+  ) {
+    res.status(413).json({
+      success: false,
+      message: "Request entity too large. Maximum allowed payload size is 1MB.",
+      error: null,
+    })
+    return
+  }
+
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "code" in err &&
+    (err as { code: unknown }).code === 11000
+  ) {
+    res.status(409).json({
+      success: false,
+      message: "Duplicate entry conflict",
+      error: null,
+    })
+    return
+  }
+
   if (err instanceof Error && err.message.startsWith("CORS blocked")) {
     res.status(403).json({
       success: false,
@@ -56,7 +84,9 @@ export function globalErrorHandler(
     ? err.message
     : "Something went wrong"
 
-  console.error("Unhandled Error:", err instanceof Error ? err.message : err)
+  const rawMessage = err instanceof Error ? err.message : String(err)
+  const sanitizedMessage = rawMessage.replace(/\/\/[^:]+:[^@]+@/, "//***:***@")
+  console.error("Unhandled Error:", sanitizedMessage)
 
   res.status(500).json({
     success: false,

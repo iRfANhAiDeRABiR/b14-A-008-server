@@ -34,6 +34,10 @@ export class ApiError extends Error {
     return new ApiError(422, message, details)
   }
 
+  static tooManyRequests(message = "Too many requests, please try again later", details: unknown = null): ApiError {
+    return new ApiError(429, message, details)
+  }
+
   static internal(message = "Internal Server Error", details: unknown = null): ApiError {
     return new ApiError(500, message, details)
   }

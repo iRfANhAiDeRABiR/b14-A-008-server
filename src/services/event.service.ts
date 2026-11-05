@@ -26,7 +26,7 @@ import { getUpcomingDateBoundary, parseEventDate } from "../utils/date.js"
 import { ApiError } from "../utils/api-error.js"
 
 function escapeRegex(text: string): string {
-  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&")
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
 }
 
 export async function createEventInDb(
@@ -77,8 +77,32 @@ export async function getUpcomingEventsFromDb(
 ): Promise<UpcomingEventsResponse> {
   const boundary = getUpcomingDateBoundary()
 
+  let lowerBound = boundary
+  let upperBound: Date | undefined = undefined
+
+  if (params.startDate) {
+    const [sY, sM, sD] = params.startDate.split("-").map(Number)
+    const startRange = new Date(Date.UTC(sY, sM - 1, sD, 0, 0, 0, 0))
+    if (startRange.getTime() > boundary.getTime()) {
+      lowerBound = startRange
+    }
+  }
+
+  if (params.endDate) {
+    const [eY, eM, eD] = params.endDate.split("-").map(Number)
+    upperBound = new Date(Date.UTC(eY, eM - 1, eD, 23, 59, 59, 999))
+  }
+
+  const dateFilter: Record<string, Date> = {
+    $gte: lowerBound,
+  }
+
+  if (upperBound) {
+    dateFilter.$lte = upperBound
+  }
+
   const filter: Filter<EventDocument> = {
-    eventDate: { $gte: boundary },
+    eventDate: dateFilter,
   }
 
   if (params.eventType && params.eventType !== "all") {
@@ -86,29 +110,25 @@ export async function getUpcomingEventsFromDb(
   }
 
   if (params.location && params.location.trim()) {
-    const escaped = escapeRegex(params.location.trim())
-    filter.location = { $regex: new RegExp(escaped, "i") }
+    const escapedLocation = escapeRegex(params.location.trim())
+    filter.location = { $regex: new RegExp(escapedLocation, "i") }
   }
 
   if (params.search && params.search.trim()) {
     const escapedSearch = escapeRegex(params.search.trim())
     const searchRegex = new RegExp(escapedSearch, "i")
-    const searchConditions: Filter<EventDocument>[] = [
+    filter.$or = [
       { title: { $regex: searchRegex } },
       { description: { $regex: searchRegex } },
       { location: { $regex: searchRegex } },
     ]
-
-    if (filter.$or) {
-      filter.$and = [{ $or: filter.$or }, { $or: searchConditions }]
-      delete filter.$or
-    } else {
-      filter.$or = searchConditions
-    }
   }
 
   const sortDirection = params.sort === "latest" ? -1 : 1
-  const sortCriteria: Sort = { eventDate: sortDirection }
+  const sortCriteria: Sort = {
+    eventDate: sortDirection,
+    _id: sortDirection,
+  }
 
   const page = params.page ?? 1
   const limit = params.limit ?? 6
@@ -117,10 +137,23 @@ export async function getUpcomingEventsFromDb(
   const collection = getEventsCollection()
 
   const totalEvents = await collection.countDocuments(filter)
-  const totalPages = totalEvents === 0 ? 0 : Math.ceil(totalEvents / limit)
+  const totalPages = Math.max(1, Math.ceil(totalEvents / limit))
+
+  const projection = {
+    title: 1,
+    description: 1,
+    eventType: 1,
+    imageUrl: 1,
+    location: 1,
+    eventDate: 1,
+    "createdBy.name": 1,
+    joinedCount: 1,
+    createdAt: 1,
+    updatedAt: 1,
+  }
 
   const docs = await collection
-    .find(filter)
+    .find(filter, { projection })
     .sort(sortCriteria)
     .skip(skip)
     .limit(limit)
@@ -133,13 +166,13 @@ export async function getUpcomingEventsFromDb(
     eventType: doc.eventType,
     imageUrl: doc.imageUrl,
     location: doc.location,
-    eventDate: doc.eventDate.toISOString(),
+    eventDate: (doc.eventDate instanceof Date ? doc.eventDate : new Date(doc.eventDate)).toISOString(),
     createdBy: {
       name: doc.createdBy?.name || "Organizer",
     },
     joinedCount: doc.joinedCount ?? 0,
-    createdAt: doc.createdAt.toISOString(),
-    updatedAt: doc.updatedAt.toISOString(),
+    createdAt: (doc.createdAt instanceof Date ? doc.createdAt : new Date(doc.createdAt)).toISOString(),
+    updatedAt: (doc.updatedAt instanceof Date ? doc.updatedAt : new Date(doc.updatedAt)).toISOString(),
   }))
 
   return {

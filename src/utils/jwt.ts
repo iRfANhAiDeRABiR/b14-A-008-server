@@ -45,6 +45,7 @@ export async function verifyToken(
   customOptions?: JWTVerifyOptions
 ): Promise<VerifiedUserPayload> {
   const verifyOptions: JWTVerifyOptions = {
+    algorithms: ["RS256", "EdDSA", "ES256"],
     ...customOptions,
   }
 
