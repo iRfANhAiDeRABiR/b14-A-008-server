@@ -151,3 +151,57 @@ export const getUpcomingEventsQuerySchema = z.object({
 })
 
 export type GetUpcomingEventsQueryParams = z.infer<typeof getUpcomingEventsQuerySchema>
+
+export const updateEventSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(5, "Event title must be at least 5 characters long")
+      .max(100, "Event title cannot exceed 100 characters")
+      .optional(),
+    description: z
+      .string()
+      .trim()
+      .min(20, "Event description must be at least 20 characters long")
+      .max(2000, "Event description cannot exceed 2000 characters")
+      .optional(),
+    eventType: z
+      .string()
+      .trim()
+      .refine(
+        (val) => EVENT_CATEGORIES.includes(val as (typeof EVENT_CATEGORIES)[number]),
+        "Invalid event type"
+      )
+      .optional(),
+    imageUrl: z
+      .string()
+      .trim()
+      .url("Please enter a valid image URL")
+      .refine(
+        (url) => /^https?:\/\//i.test(url),
+        "Image URL must use http or https protocol"
+      )
+      .optional(),
+    location: z
+      .string()
+      .trim()
+      .min(3, "Location must be at least 3 characters long")
+      .max(150, "Location cannot exceed 150 characters")
+      .optional(),
+    eventDate: z
+      .string()
+      .trim()
+      .refine((val) => {
+        try {
+          const parsed = parseEventDate(val)
+          return isStrictFutureDate(parsed)
+        } catch {
+          return false
+        }
+      }, "Event date must be a valid future date (starting from tomorrow)")
+      .optional(),
+  })
+  .strict()
+
+export type UpdateEventSchemaType = z.infer<typeof updateEventSchema>

@@ -6,11 +6,15 @@ import {
   createEventSchema,
   getUpcomingEventsQuerySchema,
   isValidObjectId,
+  updateEventSchema,
 } from "../validations/event.validation.js"
 import {
   createEventInDb,
+  deleteEventInDb,
   getEventByIdFromDb,
+  getMyEventsFromDb,
   getUpcomingEventsFromDb,
+  updateEventInDb,
 } from "../services/event.service.js"
 import { EventCreator } from "../types/event.js"
 
@@ -154,6 +158,123 @@ export async function getEventById(
         event,
       },
       event,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function getMyEvents(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const user = req.user
+
+    if (!user || !user.userId) {
+      throw ApiError.unauthorized("Authentication required")
+    }
+
+    const events = await getMyEventsFromDb(user.userId)
+
+    res.status(200).json({
+      success: true,
+      message: "Your events retrieved successfully",
+      events,
+      data: {
+        events,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function updateEvent(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const user = req.user
+
+    if (!user || !user.userId) {
+      throw ApiError.unauthorized("Authentication required")
+    }
+
+    const { id } = req.params
+
+    if (!isValidObjectId(id)) {
+      throw ApiError.badRequest("Invalid event ID")
+    }
+
+    if (!req.body || typeof req.body !== "object" || Object.keys(req.body).length === 0) {
+      throw ApiError.badRequest("Request body cannot be empty")
+    }
+
+    if (
+      "createdBy" in req.body ||
+      "_id" in req.body ||
+      "createdAt" in req.body ||
+      "userId" in req.body ||
+      "email" in req.body ||
+      "name" in req.body
+    ) {
+      throw ApiError.badRequest(
+        "Unexpected fields provided. Protected system fields cannot be modified"
+      )
+    }
+
+    const validationResult = updateEventSchema.safeParse(req.body)
+
+    if (!validationResult.success) {
+      const firstIssue = validationResult.error.issues[0]
+      const errorMessage = firstIssue ? firstIssue.message : "Validation failed"
+      throw ApiError.badRequest(errorMessage, validationResult.error.issues)
+    }
+
+    const updatedEvent = await updateEventInDb(id, user.userId, validationResult.data)
+
+    res.status(200).json({
+      success: true,
+      message: "Event updated successfully",
+      event: updatedEvent,
+      data: {
+        event: updatedEvent,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function deleteEvent(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const user = req.user
+
+    if (!user || !user.userId) {
+      throw ApiError.unauthorized("Authentication required")
+    }
+
+    const { id } = req.params
+
+    if (!isValidObjectId(id)) {
+      throw ApiError.badRequest("Invalid event ID")
+    }
+
+    const result = await deleteEventInDb(id, user.userId)
+
+    res.status(200).json({
+      success: true,
+      message: "Event deleted successfully",
+      data: {
+        deletedEventId: result.deletedEventId,
+      },
     })
   } catch (error) {
     next(error)
