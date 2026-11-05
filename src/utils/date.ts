@@ -26,3 +26,9 @@ export function parseEventDate(input: string | Date): Date {
   throw new Error(`Invalid date format: ${input}. Expected YYYY-MM-DD or valid ISO date string.`)
 }
 
+export function getUpcomingDateBoundary(): Date {
+  const now = new Date()
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)
+  )
+}

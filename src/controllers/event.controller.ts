@@ -2,8 +2,14 @@ import { Request, Response, NextFunction } from "express"
 import { ObjectId } from "mongodb"
 import { getDb } from "../config/db.js"
 import { ApiError } from "../utils/api-error.js"
-import { createEventSchema } from "../validations/event.validation.js"
-import { createEventInDb } from "../services/event.service.js"
+import {
+  createEventSchema,
+  getUpcomingEventsQuerySchema,
+} from "../validations/event.validation.js"
+import {
+  createEventInDb,
+  getUpcomingEventsFromDb,
+} from "../services/event.service.js"
 import { EventCreator } from "../types/event.js"
 
 export async function createEvent(
@@ -79,6 +85,42 @@ export async function createEvent(
         event: createdEvent,
       },
       event: createdEvent,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function getUpcomingEvents(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const validationResult = getUpcomingEventsQuerySchema.safeParse(req.query)
+
+    if (!validationResult.success) {
+      const firstIssue = validationResult.error.issues[0]
+      const errorMessage = firstIssue ? firstIssue.message : "Invalid query parameters"
+      throw ApiError.badRequest(errorMessage, validationResult.error.issues)
+    }
+
+    const { events, pagination } = await getUpcomingEventsFromDb(validationResult.data)
+
+    const message =
+      events.length === 0
+        ? "No upcoming events found"
+        : "Upcoming events retrieved successfully"
+
+    res.status(200).json({
+      success: true,
+      message,
+      events,
+      pagination,
+      data: {
+        events,
+        pagination,
+      },
     })
   } catch (error) {
     next(error)

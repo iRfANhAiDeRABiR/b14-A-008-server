@@ -46,3 +46,30 @@ export interface UpdateEventInput {
   eventDate?: string | Date
 }
 
+export interface EventPagination {
+  currentPage: number
+  totalPages: number
+  totalEvents: number
+  limit: number
+}
+
+export interface PublicEventItem {
+  _id: string
+  title: string
+  description: string
+  eventType: EventType
+  imageUrl: string
+  location: string
+  eventDate: string
+  createdBy: {
+    name: string
+  }
+  joinedCount?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UpcomingEventsResponse {
+  events: PublicEventItem[]
+  pagination: EventPagination
+}

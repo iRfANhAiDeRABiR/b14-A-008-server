@@ -90,3 +90,49 @@ export const createEventSchema = z
   .strict()
 
 export type CreateEventSchemaType = z.infer<typeof createEventSchema>
+
+export const getUpcomingEventsQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .refine((val) => val === undefined || (/^\d+$/.test(val) && Number(val) > 0), {
+      message: "Page must be a positive integer",
+    })
+    .transform((val) => (val ? Number(val) : 1)),
+  limit: z
+    .string()
+    .optional()
+    .refine(
+      (val) =>
+        val === undefined ||
+        (/^\d+$/.test(val) && Number(val) >= 1 && Number(val) <= 50),
+      {
+        message: "Limit must be a positive integer between 1 and 50",
+      }
+    )
+    .transform((val) => (val ? Number(val) : 6)),
+  search: z.string().trim().optional(),
+  eventType: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (val) =>
+        !val ||
+        val === "all" ||
+        EVENT_CATEGORIES.includes(val as (typeof EVENT_CATEGORIES)[number]),
+      "Invalid event type"
+    ),
+  location: z.string().trim().optional(),
+  sort: z
+    .string()
+    .trim()
+    .optional()
+    .refine(
+      (val) => !val || val === "nearest" || val === "latest",
+      "Invalid sort option. Allowed values: nearest, latest"
+    )
+    .transform((val) => (val === "latest" ? "latest" : "nearest")),
+})
+
+export type GetUpcomingEventsQueryParams = z.infer<typeof getUpcomingEventsQuerySchema>
