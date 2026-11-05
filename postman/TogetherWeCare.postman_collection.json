@@ -1,0 +1,411 @@
+{
+  "info": {
+    "_postman_id": "7b8e1f2a-8d3c-4e5a-9a1b-togetherwecare-api",
+    "name": "TogetherWeCare API",
+    "description": "Complete Postman collection for TogetherWeCare REST API backend. Includes Health Checks, Public Events, Event Management, and Event Participation.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "YOUR_BETTER_AUTH_JWT_TOKEN",
+      "type": "string"
+    },
+    {
+      "key": "eventId",
+      "value": "6729a1b2c3d4e5f6a7b8c9d0",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Health Check",
+      "item": [
+        {
+          "name": "Check Server & DB Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check if API and MongoDB Atlas connection pool are operational."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response indicates healthy database\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.status).to.eql(\"healthy\");",
+                  "    pm.expect(jsonData.database).to.eql(\"connected\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Public Events",
+      "item": [
+        {
+          "name": "Get Homepage Upcoming Events (Limit 6)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events?limit=6",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "6",
+                  "description": "Maximum 6 events for homepage"
+                }
+              ]
+            },
+            "description": "Retrieve maximum six upcoming events for the homepage."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Events returned with limit 6\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.success).to.eql(true);",
+                  "    pm.expect(jsonData.events).to.be.an(\"array\");",
+                  "    pm.expect(jsonData.pagination.limit).to.eql(6);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Events Directory (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events?page=1&limit=9&sort=nearest",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "9"
+                },
+                {
+                  "key": "sort",
+                  "value": "nearest"
+                }
+              ]
+            },
+            "description": "Retrieve directory page with default pagination and nearest chronological sort."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Pagination metadata is present\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.pagination.currentPage).to.eql(1);",
+                  "    pm.expect(jsonData.pagination.limit).to.eql(9);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search & Filter Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events?search=winter&eventType=Donation&location=Dhaka&sort=nearest",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "winter"
+                },
+                {
+                  "key": "eventType",
+                  "value": "Donation"
+                },
+                {
+                  "key": "location",
+                  "value": "Dhaka"
+                },
+                {
+                  "key": "sort",
+                  "value": "nearest"
+                }
+              ]
+            },
+            "description": "Search across title, description, and location combined with category filter."
+          }
+        },
+        {
+          "name": "Filter Events by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events?startDate=2026-12-01&endDate=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-12-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-12-31"
+                }
+              ]
+            },
+            "description": "Filter upcoming events within an inclusive calendar date range."
+          }
+        },
+        {
+          "name": "Get Single Event Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "{{eventId}}"]
+            },
+            "description": "Get full public details of an event by its 24-character hexadecimal MongoDB ObjectId."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 or 404\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Event Management",
+      "item": [
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Winter Warmth Clothing Drive\",\n  \"description\": \"Join volunteers to distribute winter jackets, sweaters, and blankets to underprivileged families.\",\n  \"eventType\": \"Donation\",\n  \"imageUrl\": \"https://images.unsplash.com/photo-1488521787991-ed7bbaae773c\",\n  \"location\": \"Dhaka Community Center\",\n  \"eventDate\": \"2026-12-25\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events"]
+            },
+            "description": "Create a new community event. Automatically binds authenticated user identity."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.event && jsonData.data.event._id) {",
+                  "        pm.collectionVariables.set(\"eventId\", jsonData.data.event._id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get My Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/my-events",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "my-events"]
+            },
+            "description": "Retrieve all events created by the authenticated user."
+          }
+        },
+        {
+          "name": "Update Event",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Winter Warmth Clothing Drive (Updated Location)\",\n  \"location\": \"Mirpur Community Center, Dhaka\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "{{eventId}}"]
+            },
+            "description": "Update editable fields of an event owned by the authenticated user."
+          }
+        },
+        {
+          "name": "Delete Event",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "{{eventId}}"]
+            },
+            "description": "Delete an event owned by the authenticated user."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Event Participation",
+      "item": [
+        {
+          "name": "Join Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}/join",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "{{eventId}}", "join"]
+            },
+            "description": "Join an upcoming community event. Duplicate attempts return HTTP 409."
+          }
+        },
+        {
+          "name": "Check Join Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/{{eventId}}/join-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "{{eventId}}", "join-status"]
+            },
+            "description": "Check if the authenticated user has already joined the specified event."
+          }
+        },
+        {
+          "name": "Get Joined Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/events/joined",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "events", "joined"]
+            },
+            "description": "Retrieve events joined by the authenticated user with two-tier sorting."
+          }
+        }
+      ]
+    }
+  ]
+}
+

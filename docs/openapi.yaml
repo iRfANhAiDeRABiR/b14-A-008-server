@@ -1,0 +1,806 @@
+openapi: 3.1.0
+info:
+  title: TogetherWeCare API
+  version: 1.0.0
+  description: >-
+    REST API for TogetherWeCare, a community social development events platform.
+    Connects volunteers and community organizers with secure Better Auth JWT authentication,
+    MongoDB Atlas persistence, rate limiting, and comprehensive filtering.
+servers:
+  - url: http://localhost:5000
+    description: Local Development Server
+  - url: https://your-api-domain.com
+    description: Production Server Placeholder
+
+paths:
+  /api/health:
+    get:
+      summary: Health check endpoint
+      description: Returns the operational status of the Express server and MongoDB database connection.
+      operationId: getHealthStatus
+      responses:
+        '200':
+          description: Server and database are healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: TogetherWeCare API is running
+                  status:
+                    type: string
+                    example: healthy
+                  database:
+                    type: string
+                    example: connected
+        '503':
+          description: Service unavailable - database disconnected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/events:
+    get:
+      summary: Discover upcoming events
+      description: Retrieve paginated upcoming community service events with search, category, location, and date-range filters.
+      operationId: getUpcomingEvents
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Page number (positive integer)
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          required: false
+          description: Number of events per page (1 to 50)
+          schema:
+            type: integer
+            default: 6
+            minimum: 1
+            maximum: 50
+        - name: search
+          in: query
+          required: false
+          description: Case-insensitive substring match in title, description, and location
+          schema:
+            type: string
+        - name: eventType
+          in: query
+          required: false
+          description: Category filter
+          schema:
+            type: string
+            enum: [all, Cleanup, Plantation, Donation, Education, Healthcare, Other]
+        - name: location
+          in: query
+          required: false
+          description: Case-insensitive partial location match
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          required: false
+          description: Inclusive calendar start date in YYYY-MM-DD format
+          schema:
+            type: string
+            format: date
+            example: '2026-12-01'
+        - name: endDate
+          in: query
+          required: false
+          description: Inclusive calendar end date in YYYY-MM-DD format
+          schema:
+            type: string
+            format: date
+            example: '2026-12-31'
+        - name: sort
+          in: query
+          required: false
+          description: Sort chronological direction by event date
+          schema:
+            type: string
+            enum: [nearest, latest]
+            default: nearest
+      responses:
+        '200':
+          description: Upcoming events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Upcoming events retrieved successfully
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PublicEvent'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                  data:
+                    type: object
+                    properties:
+                      events:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PublicEvent'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create community event
+      description: Create a new community service event. Requires Better Auth JWT authentication.
+      operationId: createEvent
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventInput'
+      responses:
+        '201':
+          description: Event created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Event created successfully
+                  data:
+                    type: object
+                    properties:
+                      event:
+                        $ref: '#/components/schemas/Event'
+        '400':
+          description: Validation failure or past date
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/events/my-events:
+    get:
+      summary: Get user-created events
+      description: Retrieve events organized by the authenticated user.
+      operationId: getMyEvents
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: My events retrieved successfully
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  data:
+                    type: object
+                    properties:
+                      events:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Event'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/events/joined:
+    get:
+      summary: Get joined events
+      description: Retrieve events joined by the authenticated user, sorted with upcoming events first and completed events second.
+      operationId: getJoinedEvents
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Joined events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Joined events retrieved successfully
+                  joinedEvents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JoinedEvent'
+                  data:
+                    type: object
+                    properties:
+                      joinedEvents:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/JoinedEvent'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/events/{id}:
+    get:
+      summary: Get event details
+      description: Retrieve public information of a single event by MongoDB ObjectId.
+      operationId: getEventById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 24-character hexadecimal MongoDB ObjectId
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+            example: '6729a1b2c3d4e5f6a7b8c9d0'
+      responses:
+        '200':
+          description: Event details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Event details retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      event:
+                        $ref: '#/components/schemas/PublicEvent'
+        '400':
+          description: Invalid event ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update event
+      description: Update an event owned by the authenticated user. System fields cannot be overwritten.
+      operationId: updateEvent
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 24-character hexadecimal MongoDB ObjectId
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEventInput'
+      responses:
+        '200':
+          description: Event updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Event updated successfully
+                  data:
+                    type: object
+                    properties:
+                      event:
+                        $ref: '#/components/schemas/Event'
+        '400':
+          description: Validation failure or unexpected fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not event owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete event
+      description: Delete an event created by the authenticated user and clean up joined registrations.
+      operationId: deleteEvent
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 24-character hexadecimal MongoDB ObjectId
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+      responses:
+        '200':
+          description: Event deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Event deleted successfully
+                  data:
+                    type: object
+                    properties:
+                      deletedEventId:
+                        type: string
+                        example: '6729a1b2c3d4e5f6a7b8c9d0'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden - Not event owner
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/events/{id}/join:
+    post:
+      summary: Join an upcoming event
+      description: Join a community service event. Prevents duplicate registrations.
+      operationId: joinEvent
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 24-character hexadecimal MongoDB ObjectId
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+      responses:
+        '201':
+          description: Successfully joined the event
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Successfully joined the event
+                  data:
+                    type: object
+                    properties:
+                      participation:
+                        type: object
+                        properties:
+                          _id:
+                            type: string
+                          eventId:
+                            type: string
+                          userId:
+                            type: string
+                          userName:
+                            type: string
+                          joinedAt:
+                            type: string
+                            format: date-time
+        '400':
+          description: Invalid event ID or past event
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Already joined this event
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  message:
+                    type: string
+                    example: You have already joined this event
+                  code:
+                    type: string
+                    example: ALREADY_JOINED
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/events/{id}/join-status:
+    get:
+      summary: Check join status
+      description: Check whether the authenticated user has joined a specific event.
+      operationId: getJoinStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 24-character hexadecimal MongoDB ObjectId
+          schema:
+            type: string
+            pattern: '^[0-9a-fA-F]{24}$'
+      responses:
+        '200':
+          description: Join status checked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      hasJoined:
+                        type: boolean
+                        example: true
+        '400':
+          description: Invalid event ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Event not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Better Auth issued JWT token passed in the Authorization header.
+
+  schemas:
+    EventCreator:
+      type: object
+      properties:
+        userId:
+          type: string
+          example: '6729user1111111111111111'
+        email:
+          type: string
+          format: email
+          example: 'sarah.organizer@togetherwecare.org'
+        name:
+          type: string
+          example: 'Sarah Jenkins'
+
+    PublicOrganizer:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 'Sarah Jenkins'
+
+    Event:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: '6729a1b2c3d4e5f6a7b8c9d0'
+        title:
+          type: string
+          example: 'Winter Warmth Clothing Drive'
+        description:
+          type: string
+          example: 'Collecting warm coats and thermal blankets for families during winter.'
+        eventType:
+          type: string
+          enum: [Cleanup, Plantation, Donation, Education, Healthcare, Other]
+          example: 'Donation'
+        imageUrl:
+          type: string
+          format: uri
+          example: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c'
+        location:
+          type: string
+          example: 'Dhaka Community Center'
+        eventDate:
+          type: string
+          format: date-time
+          example: '2026-12-15T10:00:00.000Z'
+        createdBy:
+          $ref: '#/components/schemas/EventCreator'
+        joinedCount:
+          type: integer
+          example: 12
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-11-01T08:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-11-01T08:00:00.000Z'
+
+    PublicEvent:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: '6729a1b2c3d4e5f6a7b8c9d0'
+        title:
+          type: string
+          example: 'Winter Warmth Clothing Drive'
+        description:
+          type: string
+          example: 'Collecting warm coats and thermal blankets for families during winter.'
+        eventType:
+          type: string
+          enum: [Cleanup, Plantation, Donation, Education, Healthcare, Other]
+          example: 'Donation'
+        imageUrl:
+          type: string
+          format: uri
+          example: 'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c'
+        location:
+          type: string
+          example: 'Dhaka Community Center'
+        eventDate:
+          type: string
+          format: date-time
+          example: '2026-12-15T10:00:00.000Z'
+        createdBy:
+          $ref: '#/components/schemas/PublicOrganizer'
+        joinedCount:
+          type: integer
+          example: 12
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-11-01T08:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-11-01T08:00:00.000Z'
+
+    JoinedEvent:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: '6729f1111111111111111111'
+        joinedAt:
+          type: string
+          format: date-time
+          example: '2026-11-05T13:00:00.000Z'
+        event:
+          $ref: '#/components/schemas/PublicEvent'
+
+    Pagination:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 2
+        totalEvents:
+          type: integer
+          example: 12
+        limit:
+          type: integer
+          example: 6
+
+    CreateEventInput:
+      type: object
+      required:
+        - title
+        - description
+        - eventType
+        - imageUrl
+        - location
+        - eventDate
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 100
+          example: 'North Zone River Clean-Up Drive'
+        description:
+          type: string
+          minLength: 20
+          maxLength: 2000
+          example: 'Join our volunteer team to remove plastic and waste along the river embankment.'
+        eventType:
+          type: string
+          enum: [Cleanup, Plantation, Donation, Education, Healthcare, Other]
+          example: 'Cleanup'
+        imageUrl:
+          type: string
+          format: uri
+          example: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09'
+        location:
+          type: string
+          minLength: 3
+          maxLength: 150
+          example: 'Buriganga North Bank, Dhaka'
+        eventDate:
+          type: string
+          example: '2026-12-20'
+
+    UpdateEventInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 100
+          example: 'North Zone River Clean-Up Drive (Rescheduled)'
+        description:
+          type: string
+          minLength: 20
+          maxLength: 2000
+        eventType:
+          type: string
+          enum: [Cleanup, Plantation, Donation, Education, Healthcare, Other]
+        imageUrl:
+          type: string
+          format: uri
+        location:
+          type: string
+          minLength: 3
+          maxLength: 150
+        eventDate:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Error description message
+        error:
+          nullable: true
+          example: null
+
