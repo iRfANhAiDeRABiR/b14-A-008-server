@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { ObjectId } from "mongodb"
 import { parseEventDate } from "../utils/date.js"
 
 export const EVENT_CATEGORIES = [
@@ -9,6 +10,20 @@ export const EVENT_CATEGORIES = [
   "Healthcare",
   "Other",
 ] as const
+
+export function isValidObjectId(id: unknown): id is string {
+  if (typeof id !== "string") {
+    return false
+  }
+  const trimmed = id.trim()
+  if (trimmed.length !== 24) {
+    return false
+  }
+  if (!/^[0-9a-fA-F]{24}$/.test(trimmed)) {
+    return false
+  }
+  return ObjectId.isValid(trimmed)
+}
 
 export function isStrictFutureDate(date: Date): boolean {
   if (!(date instanceof Date) || isNaN(date.getTime())) {

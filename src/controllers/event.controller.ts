@@ -5,9 +5,11 @@ import { ApiError } from "../utils/api-error.js"
 import {
   createEventSchema,
   getUpcomingEventsQuerySchema,
+  isValidObjectId,
 } from "../validations/event.validation.js"
 import {
   createEventInDb,
+  getEventByIdFromDb,
   getUpcomingEventsFromDb,
 } from "../services/event.service.js"
 import { EventCreator } from "../types/event.js"
@@ -121,6 +123,37 @@ export async function getUpcomingEvents(
         events,
         pagination,
       },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function getEventById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { id } = req.params
+
+    if (!isValidObjectId(id)) {
+      throw ApiError.badRequest("Invalid event ID")
+    }
+
+    const event = await getEventByIdFromDb(id)
+
+    if (!event) {
+      throw ApiError.notFound("Event not found")
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Event details retrieved successfully",
+      data: {
+        event,
+      },
+      event,
     })
   } catch (error) {
     next(error)

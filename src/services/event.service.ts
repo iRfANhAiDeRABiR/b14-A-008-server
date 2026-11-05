@@ -11,6 +11,7 @@ import {
   CreateEventSchemaType,
   GetUpcomingEventsQueryParams,
   isStrictFutureDate,
+  isValidObjectId,
 } from "../validations/event.validation.js"
 import { getUpcomingDateBoundary, parseEventDate } from "../utils/date.js"
 import { ApiError } from "../utils/api-error.js"
@@ -140,5 +141,36 @@ export async function getUpcomingEventsFromDb(
       totalEvents,
       limit,
     },
+  }
+}
+
+export async function getEventByIdFromDb(
+  eventId: string
+): Promise<PublicEventItem | null> {
+  if (!isValidObjectId(eventId)) {
+    throw ApiError.badRequest("Invalid event ID")
+  }
+
+  const collection = getEventsCollection()
+  const doc = await collection.findOne({ _id: new ObjectId(eventId) })
+
+  if (!doc) {
+    return null
+  }
+
+  return {
+    _id: doc._id.toString(),
+    title: doc.title,
+    description: doc.description,
+    eventType: doc.eventType,
+    imageUrl: doc.imageUrl,
+    location: doc.location,
+    eventDate: doc.eventDate.toISOString(),
+    createdBy: {
+      name: doc.createdBy?.name || "Community Organizer",
+    },
+    joinedCount: doc.joinedCount ?? 0,
+    createdAt: doc.createdAt.toISOString(),
+    updatedAt: doc.updatedAt.toISOString(),
   }
 }
