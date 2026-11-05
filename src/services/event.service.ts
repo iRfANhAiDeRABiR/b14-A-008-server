@@ -1,4 +1,5 @@
 import { Filter, ObjectId, Sort } from "mongodb"
+import { getDb } from "../config/db.js"
 import {
   getEventsCollection,
   getJoinedEventsCollection,
@@ -10,6 +11,7 @@ import {
   PublicEventItem,
   UpcomingEventsResponse,
 } from "../types/event.js"
+import { JoinedEventDocument } from "../types/joined-event.js"
 import {
   CreateEventSchemaType,
   GetUpcomingEventsQueryParams,
@@ -326,4 +328,122 @@ export async function deleteEventInDb(
   }
 
   return { deletedEventId: eventId }
+}
+
+export async function joinEventInDb(
+  eventId: string,
+  user: { userId: string; email?: string; name?: string }
+): Promise<any> {
+  if (!isValidObjectId(eventId)) {
+    throw ApiError.badRequest("Invalid event ID")
+  }
+
+  const eventsCollection = getEventsCollection()
+  const eventObjectId = new ObjectId(eventId)
+  const eventDoc = await eventsCollection.findOne({ _id: eventObjectId })
+
+  if (!eventDoc) {
+    throw ApiError.notFound("Event not found")
+  }
+
+  if (!isStrictFutureDate(eventDoc.eventDate)) {
+    throw ApiError.badRequest("This event is no longer available for joining.")
+  }
+
+  const joinedCollection = getJoinedEventsCollection()
+
+  const existingParticipation = await joinedCollection.findOne({
+    eventId: eventObjectId,
+    userId: user.userId,
+  })
+
+  if (existingParticipation) {
+    throw ApiError.conflict("You have already joined this event", {
+      code: "ALREADY_JOINED",
+    })
+  }
+
+  let userEmail = user.email
+  let userName = user.name
+
+  if (!userEmail || !userName) {
+    try {
+      const db = getDb()
+      const userCollection = db.collection("user")
+      const filter = ObjectId.isValid(user.userId)
+        ? { $or: [{ _id: new ObjectId(user.userId) }, { id: user.userId }] }
+        : { id: user.userId }
+      const userDoc = await userCollection.findOne(filter)
+      if (userDoc) {
+        if (!userEmail && typeof userDoc.email === "string") {
+          userEmail = userDoc.email
+        }
+        if (!userName && typeof userDoc.name === "string") {
+          userName = userDoc.name
+        }
+      }
+    } catch {
+    }
+  }
+
+  const newDoc: JoinedEventDocument = {
+    _id: new ObjectId(),
+    eventId: eventObjectId,
+    userId: user.userId,
+    userEmail: userEmail || "volunteer@togetherwecare.org",
+    userName: userName || "Community Member",
+    joinedAt: new Date(),
+  }
+
+  try {
+    await joinedCollection.insertOne(newDoc)
+  } catch (error: any) {
+    if (error?.code === 11000) {
+      throw ApiError.conflict("You have already joined this event", {
+        code: "ALREADY_JOINED",
+      })
+    }
+    throw error
+  }
+
+  try {
+    await eventsCollection.updateOne(
+      { _id: eventObjectId },
+      { $inc: { joinedCount: 1 } }
+    )
+  } catch {
+  }
+
+  return {
+    _id: newDoc._id.toString(),
+    eventId: newDoc.eventId.toString(),
+    userId: newDoc.userId,
+    userName: newDoc.userName,
+    joinedAt: newDoc.joinedAt.toISOString(),
+  }
+}
+
+export async function getJoinStatusFromDb(
+  eventId: string,
+  userId: string
+): Promise<boolean> {
+  if (!isValidObjectId(eventId)) {
+    throw ApiError.badRequest("Invalid event ID")
+  }
+
+  const eventsCollection = getEventsCollection()
+  const eventObjectId = new ObjectId(eventId)
+  const eventDoc = await eventsCollection.findOne({ _id: eventObjectId })
+
+  if (!eventDoc) {
+    throw ApiError.notFound("Event not found")
+  }
+
+  const joinedCollection = getJoinedEventsCollection()
+  const participation = await joinedCollection.findOne({
+    eventId: eventObjectId,
+    userId,
+  })
+
+  return Boolean(participation)
 }

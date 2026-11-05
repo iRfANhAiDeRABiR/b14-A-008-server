@@ -12,8 +12,10 @@ import {
   createEventInDb,
   deleteEventInDb,
   getEventByIdFromDb,
+  getJoinStatusFromDb,
   getMyEventsFromDb,
   getUpcomingEventsFromDb,
+  joinEventInDb,
   updateEventInDb,
 } from "../services/event.service.js"
 import { EventCreator } from "../types/event.js"
@@ -274,6 +276,69 @@ export async function deleteEvent(
       message: "Event deleted successfully",
       data: {
         deletedEventId: result.deletedEventId,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function joinEvent(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const user = req.user
+
+    if (!user || !user.userId) {
+      throw ApiError.unauthorized("Authentication required to join an event")
+    }
+
+    const { id } = req.params
+
+    if (!isValidObjectId(id)) {
+      throw ApiError.badRequest("Invalid event ID")
+    }
+
+    const participation = await joinEventInDb(id, user)
+
+    res.status(201).json({
+      success: true,
+      message: "You have successfully joined this event",
+      data: {
+        participation,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function getJoinStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const user = req.user
+
+    if (!user || !user.userId) {
+      throw ApiError.unauthorized("Authentication required")
+    }
+
+    const { id } = req.params
+
+    if (!isValidObjectId(id)) {
+      throw ApiError.badRequest("Invalid event ID")
+    }
+
+    const hasJoined = await getJoinStatusFromDb(id, user.userId)
+
+    res.status(200).json({
+      success: true,
+      data: {
+        hasJoined,
       },
     })
   } catch (error) {

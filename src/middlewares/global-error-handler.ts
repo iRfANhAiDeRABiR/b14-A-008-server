@@ -12,11 +12,17 @@ export function globalErrorHandler(
   }
 
   if (err instanceof ApiError) {
-    res.status(err.statusCode).json({
+    const responsePayload: Record<string, unknown> = {
       success: false,
       message: err.message,
       error: err.details,
-    })
+    }
+
+    if (err.details && typeof err.details === "object" && !Array.isArray(err.details)) {
+      Object.assign(responsePayload, err.details)
+    }
+
+    res.status(err.statusCode).json(responsePayload)
     return
   }
 
@@ -58,4 +64,3 @@ export function globalErrorHandler(
     error: null,
   })
 }
-
