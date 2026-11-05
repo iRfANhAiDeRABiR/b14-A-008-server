@@ -44,6 +44,10 @@ export function getDb(): Db {
   return db
 }
 
+export function setDb(customDb: Db | null): void {
+  db = customDb
+}
+
 export function getClient(): MongoClient | null {
   return client
 }
@@ -68,4 +72,3 @@ export async function closeDatabase(): Promise<void> {
     db = null
   }
 }
-
