@@ -13,6 +13,7 @@ import {
   deleteEventInDb,
   getEventByIdFromDb,
   getJoinStatusFromDb,
+  getJoinedEventsFromDb,
   getMyEventsFromDb,
   getUpcomingEventsFromDb,
   joinEventInDb,
@@ -339,6 +340,38 @@ export async function getJoinStatus(
       success: true,
       data: {
         hasJoined,
+      },
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export async function getJoinedEvents(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const user = req.user
+
+    if (!user || !user.userId) {
+      throw ApiError.unauthorized("Authentication required")
+    }
+
+    const joinedEvents = await getJoinedEventsFromDb(user.userId)
+
+    const message =
+      joinedEvents.length === 0
+        ? "You have not joined any events yet"
+        : "Joined events retrieved successfully"
+
+    res.status(200).json({
+      success: true,
+      message,
+      joinedEvents,
+      data: {
+        joinedEvents,
       },
     })
   } catch (error) {

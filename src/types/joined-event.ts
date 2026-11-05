@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb"
+import { PublicEventItem } from "./event.js"
 
 export interface JoinedEventDocument {
   _id: ObjectId
@@ -17,3 +18,8 @@ export interface CreateJoinedEventInput {
   joinedAt?: Date
 }
 
+export interface JoinedEventResponseItem {
+  _id: string
+  joinedAt: string
+  event: PublicEventItem
+}

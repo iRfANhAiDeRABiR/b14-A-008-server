@@ -11,7 +11,10 @@ import {
   PublicEventItem,
   UpcomingEventsResponse,
 } from "../types/event.js"
-import { JoinedEventDocument } from "../types/joined-event.js"
+import {
+  JoinedEventDocument,
+  JoinedEventResponseItem,
+} from "../types/joined-event.js"
 import {
   CreateEventSchemaType,
   GetUpcomingEventsQueryParams,
@@ -446,4 +449,91 @@ export async function getJoinStatusFromDb(
   })
 
   return Boolean(participation)
+}
+
+export async function getJoinedEventsFromDb(
+  userId: string
+): Promise<JoinedEventResponseItem[]> {
+  const joinedCollection = getJoinedEventsCollection()
+  const eventsCollection = getEventsCollection()
+
+  const participations = await joinedCollection
+    .find({ userId })
+    .sort({ joinedAt: -1 })
+    .toArray()
+
+  if (participations.length === 0) {
+    return []
+  }
+
+  const eventObjectIds = participations.map((p) =>
+    p.eventId instanceof ObjectId ? p.eventId : new ObjectId(p.eventId)
+  )
+
+  const eventDocs = await eventsCollection
+    .find({ _id: { $in: eventObjectIds } })
+    .toArray()
+
+  const eventMap = new Map(
+    eventDocs.map((doc) => [doc._id.toString(), doc])
+  )
+
+  const boundary = getUpcomingDateBoundary().getTime()
+
+  const items: JoinedEventResponseItem[] = []
+
+  for (const p of participations) {
+    const eventIdStr = p.eventId.toString()
+    const doc = eventMap.get(eventIdStr)
+
+    if (!doc) {
+      continue
+    }
+
+    items.push({
+      _id: p._id.toString(),
+      joinedAt: p.joinedAt.toISOString(),
+      event: {
+        _id: doc._id.toString(),
+        title: doc.title,
+        description: doc.description,
+        eventType: doc.eventType,
+        imageUrl: doc.imageUrl,
+        location: doc.location,
+        eventDate: doc.eventDate.toISOString(),
+        createdBy: {
+          name: doc.createdBy?.name || "Community Organizer",
+        },
+        joinedCount: doc.joinedCount ?? 0,
+        createdAt: doc.createdAt.toISOString(),
+        updatedAt: doc.updatedAt.toISOString(),
+      },
+    })
+  }
+
+  const upcoming: JoinedEventResponseItem[] = []
+  const completed: JoinedEventResponseItem[] = []
+
+  for (const item of items) {
+    const time = new Date(item.event.eventDate).getTime()
+    if (time >= boundary) {
+      upcoming.push(item)
+    } else {
+      completed.push(item)
+    }
+  }
+
+  upcoming.sort(
+    (a, b) =>
+      new Date(a.event.eventDate).getTime() -
+      new Date(b.event.eventDate).getTime()
+  )
+
+  completed.sort(
+    (a, b) =>
+      new Date(b.event.eventDate).getTime() -
+      new Date(a.event.eventDate).getTime()
+  )
+
+  return [...upcoming, ...completed]
 }

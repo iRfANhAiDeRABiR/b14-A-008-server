@@ -5,6 +5,7 @@ import {
   deleteEvent,
   getEventById,
   getJoinStatus,
+  getJoinedEvents,
   getMyEvents,
   getUpcomingEvents,
   joinEvent,
@@ -15,6 +16,7 @@ const router = Router()
 
 router.get("/", getUpcomingEvents)
 router.get("/my-events", authenticate, getMyEvents)
+router.get("/joined", authenticate, getJoinedEvents)
 router.get("/:id", getEventById)
 router.get("/:id/join-status", authenticate, getJoinStatus)
 router.post("/", authenticate, createEvent)
