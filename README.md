@@ -93,6 +93,7 @@ The server expects the following environment variables in `.env`:
 | `BETTER_AUTH_ISSUER` | No | - | Expected JWT issuer claim (`iss`), if configured in Better Auth. |
 | `BETTER_AUTH_AUDIENCE` | No | - | Expected JWT audience claim (`aud`), if configured in Better Auth. |
 | `NODE_ENV` | No | `development` | Environment mode (`development` or `production`). In production, error stack traces are sanitized. |
+| `TRUST_PROXY` | No | `1` | Enables trust proxy support for reverse proxies (Render, Nginx, Cloudflare) so rate limiting identifies client IPs. |
 
 ---
 
@@ -101,6 +102,14 @@ The server expects the following environment variables in `.env`:
 - **[Markdown API Guide](docs/API.md)**: Comprehensive guide detailing all endpoints, authentication headers, request bodies, query parameters, and responses.
 - **[OpenAPI 3.1 Specification](docs/openapi.yaml)**: Machine-readable OpenAPI 3.1 YAML schema compatible with Swagger Editor and API gateways.
 - **[Postman Collection](postman/TogetherWeCare.postman_collection.json)**: Ready-to-import Postman v2.1 collection pre-configured with folders, environment variables, and test assertions.
+- **[Render Deployment Guide](docs/DEPLOYMENT.md)**: Step-by-step production deployment manual for Render and MongoDB Atlas.
+
+---
+
+## 🌐 Live API Deployment
+
+- **Production API URL**: `https://togetherwecare-server.onrender.com` *(Placeholder — configure after completing Render deployment)*
+- **Production Health Check**: `https://togetherwecare-server.onrender.com/api/health` *(Placeholder)*
 
 ---
 

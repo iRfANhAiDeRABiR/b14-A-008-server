@@ -11,6 +11,15 @@ import eventRouter from "./routes/event.routes.js"
 
 const app: Express = express()
 
+if (process.env.TRUST_PROXY) {
+  const trustProxyVal = process.env.TRUST_PROXY
+  if (trustProxyVal === "1" || trustProxyVal === "true") {
+    app.set("trust proxy", 1)
+  } else {
+    app.set("trust proxy", trustProxyVal)
+  }
+}
+
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },

@@ -5,12 +5,12 @@ function getAllowedOrigins(): string[] {
     ? process.env.CLIENT_URL.split(",").map((o) => o.trim()).filter(Boolean)
     : []
 
-  const defaultOrigins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-  ]
+  const devOrigins =
+    process.env.NODE_ENV === "production"
+      ? []
+      : ["http://localhost:3000", "http://127.0.0.1:3000"]
 
-  return Array.from(new Set([...defaultOrigins, ...envOrigins]))
+  return Array.from(new Set([...devOrigins, ...envOrigins]))
 }
 
 export const corsOptions: CorsOptions = {
