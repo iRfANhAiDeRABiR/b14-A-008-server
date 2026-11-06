@@ -2,7 +2,9 @@ import cors, { CorsOptions } from "cors"
 
 function getAllowedOrigins(): string[] {
   const envOrigins = process.env.CLIENT_URL
-    ? process.env.CLIENT_URL.split(",").map((o) => o.trim()).filter(Boolean)
+    ? process.env.CLIENT_URL.split(",")
+        .map((o) => o.trim().replace(/\/+$/, ""))
+        .filter(Boolean)
     : []
 
   const devOrigins =
@@ -19,8 +21,9 @@ export const corsOptions: CorsOptions = {
       return callback(null, true)
     }
 
+    const normalizedOrigin = origin.replace(/\/+$/, "")
     const allowed = getAllowedOrigins()
-    if (allowed.includes(origin)) {
+    if (allowed.includes(normalizedOrigin)) {
       return callback(null, true)
     }
 
